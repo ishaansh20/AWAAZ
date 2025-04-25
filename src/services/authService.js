@@ -1,187 +1,222 @@
-import config from '../config/config';
+import api from './api';
 
-/**
- * Authentication service for login, logout, and token management
- */
+// Mock user data for testing when backend is not available
+const MOCK_ENABLED = true; // Set to false when backend is properly connected
+
+// Initialize mock users from localStorage or use defaults
+const getInitialMockUsers = () => {
+  const storedUsers = localStorage.getItem('mockUsers');
+  if (storedUsers) {
+    return JSON.parse(storedUsers);
+  }
+  
+  // Default mock users
+  const defaultUsers = [
+    {
+      id: 'admin-123',
+      username: 'admin',
+      email: 'admin@example.com',
+      role: 'admin',
+      name: 'Admin User',
+      password: 'admin123' // Store password for mock auth
+    },
+    {
+      id: 'user-123',
+      username: 'user1',
+      email: 'user1@example.com',
+      role: 'user',
+      name: 'Regular User',
+      password: 'password123' // Store password for mock auth
+    }
+  ];
+  
+  // Store default users in localStorage
+  localStorage.setItem('mockUsers', JSON.stringify(defaultUsers));
+  return defaultUsers;
+};
+
+let MOCK_USERS = getInitialMockUsers();
+
+// Function to save mock users to localStorage
+const saveMockUsers = () => {
+  localStorage.setItem('mockUsers', JSON.stringify(MOCK_USERS));
+};
+
 const authService = {
-  /**
-   * Get stored token
-   * @returns {string|null} - The stored token or null
-   */
-  getToken: () => {
-    return localStorage.getItem(config.auth.tokenKey);
-  },
-
-  /**
-   * Store auth token
-   * @param {string} token - The token to store
-   */
-  setToken: (token) => {
-    localStorage.setItem(config.auth.tokenKey, token);
-  },
-
-  /**
-   * Get stored user
-   * @returns {object|null} - The stored user or null
-   */
-  getUser: () => {
-    const userData = localStorage.getItem(config.auth.userKey);
-    return userData ? JSON.parse(userData) : null;
-  },
-
-  /**
-   * Store user data
-   * @param {object} user - The user data to store
-   */
-  setUser: (user) => {
-    localStorage.setItem(config.auth.userKey, JSON.stringify(user));
-  },
-
-  /**
-   * Check if user is authenticated
-   * @returns {boolean} - Whether user is authenticated
-   */
-  isAuthenticated: () => {
-    return !!authService.getToken();
-  },
-
-  /**
-   * Log in a user
-   * @param {object} credentials - The user credentials
-   * @returns {Promise<object>} - The response data
-   */
-  login: async (credentials) => {
-    try {
-      // This is where you'd make your actual API call
-      // In a real app, replace this with a fetch call to your backend
-      
-      // Example API call
-      // const response = await fetch(`${config.apiBaseUrl}/auth/login`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(credentials),
-      // });
-      
-      // if (!response.ok) {
-      //   const errorData = await response.json();
-      //   throw new Error(errorData.message || 'Login failed');
-      // }
-      
-      // const data = await response.json();
-      
-      // For demo, simulate successful login
-      let data;
-      
-      // Check if this is an admin login
-      if (credentials.emailOrPhone === 'admin@awaaz.com' && credentials.password === 'admin123') {
-        data = {
-          token: 'admin-token-12345',
-          user: {
-            id: 999,
-            name: 'Admin User',
-            email: 'admin@awaaz.com',
-            role: 'admin',
-          },
-        };
-      } else {
-        // For phone number admin login
-        if (credentials.emailOrPhone === '9876543210' && credentials.password === 'admin123') {
-          data = {
-            token: 'admin-token-12345',
-            user: {
-              id: 999,
-              name: 'Admin User',
-              email: 'admin@awaaz.com',
-              phoneNumber: '9876543210',
-              role: 'admin',
-            },
-          };
-        } else {
-          // Regular user login
-          data = {
-            token: 'demo-token-12345',
-            user: {
-              id: 1,
-              name: 'Demo User',
-              email: /^\d+$/.test(credentials.emailOrPhone) ? 'user@example.com' : credentials.emailOrPhone,
-              phoneNumber: /^\d+$/.test(credentials.emailOrPhone) ? credentials.emailOrPhone : '1234567890',
-              role: 'user',
-            },
-          };
-        }
+  // Register a new user
+  register: async (userData) => {
+    // For testing without backend
+    if (MOCK_ENABLED) {
+      // Check if user exists in mock users
+      const existingUser = MOCK_USERS.find(user => user.email === userData.email);
+      if (existingUser) {
+        throw new Error('Email already exists');
       }
       
-      // Store token and user data
-      authService.setToken(data.token);
-      authService.setUser(data.user);
-      
-      return data;
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Register a new user
-   * @param {object} userData - The user data to register
-   * @returns {Promise<object>} - The response data
-   */
-  register: async (userData) => {
-    try {
-      // This is where you'd make your actual API call
-      // In a real app, replace this with a fetch call to your backend
-      
-      // Example API call
-      // const response = await fetch(`${config.apiBaseUrl}/auth/register`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(userData),
-      // });
-      
-      // if (!response.ok) {
-      //   const errorData = await response.json();
-      //   throw new Error(errorData.message || 'Registration failed');
-      // }
-      
-      // const data = await response.json();
-      
-      // For demo, simulate successful registration
-      const data = {
-        success: true,
-        message: 'Registration successful',
-        user: {
-          id: Math.floor(Math.random() * 1000),
-          name: userData.name,
-          email: userData.email,
-          phoneNumber: userData.phoneNumber,
-          role: 'user',
-        },
+      // Create mock user
+      const newUser = {
+        id: `user-${Date.now()}`,
+        username: userData.username || userData.email.split('@')[0],
+        email: userData.email,
+        role: 'user',
+        name: userData.name || 'New User',
+        password: userData.password // Store password for mock auth
       };
       
-      // In a real application, you might also log the user in automatically
-      // after registration, or redirect to a login page
+      // Add the new user to MOCK_USERS array
+      MOCK_USERS.push(newUser);
       
-      return data;
+      // Save updated users to localStorage
+      saveMockUsers();
+      
+      // Store in localStorage to simulate persistence
+      localStorage.setItem('token', 'mock-token');
+      localStorage.setItem('user', JSON.stringify({...newUser, password: undefined})); // Don't store password in user session
+      
+      return { success: true, message: 'Registration successful!', data: { user: {...newUser, password: undefined} } };
+    }
+    
+    // Real implementation
+    try {
+      const response = await api.post('/auth/register', userData);
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.data.user));
+      }
+      return response.data;
     } catch (error) {
-      console.error('Registration error:', error);
-      throw error;
+      throw error.response ? error.response.data : new Error('Registration failed');
     }
   },
 
-  /**
-   * Log out a user
-   */
+  // Login an existing user
+  login: async (credentials) => {
+    // For testing without backend
+    if (MOCK_ENABLED) {
+      // Refresh mock users from localStorage in case they were updated in another tab
+      MOCK_USERS = getInitialMockUsers();
+      
+      // Check credentials against mock users
+      const user = MOCK_USERS.find(user => 
+        user.email === credentials.emailOrPhone || 
+        user.email === credentials.email
+      );
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      // Check password (real implementation would use bcrypt comparison)
+      if (user.password !== credentials.password) {
+        throw new Error('Incorrect password');
+      }
+      
+      // Store auth data (remove password for security)
+      const userWithoutPassword = {...user, password: undefined};
+      localStorage.setItem('token', 'mock-token');
+      localStorage.setItem('user', JSON.stringify(userWithoutPassword));
+      
+      return { success: true, token: 'mock-token', data: { user: userWithoutPassword } };
+    }
+    
+    // Real implementation
+    try {
+      const response = await api.post('/auth/login', credentials);
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.data.user));
+      }
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : new Error('Login failed');
+    }
+  },
+
+  // Logout user
   logout: () => {
-    localStorage.removeItem(config.auth.tokenKey);
-    localStorage.removeItem(config.auth.userKey);
-    // Redirect to login page or refresh
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     window.location.href = '/';
   },
+
+  // Get current user data
+  getCurrentUser: () => {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+  },
+
+  // Add an alias for getCurrentUser for compatibility
+  getUser: () => {
+    return authService.getCurrentUser();
+  },
+
+  // Check if user is logged in
+  isLoggedIn: () => {
+    return !!localStorage.getItem('token');
+  },
+
+  // Add an alias for isLoggedIn for compatibility
+  isAuthenticated: () => {
+    return authService.isLoggedIn();
+  },
+
+  // Get user role
+  getUserRole: () => {
+    const user = authService.getCurrentUser();
+    return user ? user.role : null;
+  },
+
+  // Check if user is admin
+  isAdmin: () => {
+    return authService.getUserRole() === 'admin';
+  },
+
+  // Update user password
+  updatePassword: async (passwordData) => {
+    // For testing without backend
+    if (MOCK_ENABLED) {
+      // Find the current user
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('Not logged in');
+      }
+      
+      // Find user in MOCK_USERS array
+      const userIndex = MOCK_USERS.findIndex(user => user.id === currentUser.id);
+      if (userIndex === -1) {
+        throw new Error('User not found');
+      }
+      
+      // Update password
+      MOCK_USERS[userIndex].password = passwordData.newPassword;
+      saveMockUsers();
+      
+      return { success: true, message: 'Password updated successfully' };
+    }
+    
+    try {
+      const response = await api.patch('/auth/update-password', passwordData);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : new Error('Password update failed');
+    }
+  },
+
+  // Get user profile
+  getProfile: async () => {
+    // For testing without backend
+    if (MOCK_ENABLED) {
+      const user = authService.getCurrentUser();
+      return { success: true, data: { user } };
+    }
+    
+    try {
+      const response = await api.get('/auth/me');
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : new Error('Failed to get profile');
+    }
+  }
 };
 
 export default authService; 
